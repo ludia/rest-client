@@ -125,8 +125,7 @@ class RestClient(object):
         log.debug('RestClient: %s %s params=%s', method, url, opts)
 
         try:
-            with self.session as s:
-                resp = s.request(method=method, url=url, **opts)
+            resp = self.session.request(method=method, url=url, **opts)
         except RequestException as error:
             log.error('rest_error=%s method=%s url=%s details=%s',
                       error.__class__.__name__, method, url, error)
