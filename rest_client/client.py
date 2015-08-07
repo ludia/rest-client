@@ -143,10 +143,7 @@ class RestClient(object):
         try:
             resp.raise_for_status()
         except Exception as error:
-            if resp.status_code < 500:
-                rest_error = 'client_error'
-            else:
-                rest_error = 'server_error'
+            rest_error = 'client' if resp.status_code < 500 else 'server'
             log.error('rest_error=%s method=%s url=%s status=%s body="%s"',
                       rest_error, method, url, resp.status_code, resp.content)
             raise
