@@ -132,7 +132,7 @@ class RestClient(object):
             raise
 
         # Treat redirect as an error because we are a REST client
-        if 300 <= resp.status_code < 399:
+        if 300 <= resp.status_code < 400:
             log.error('rest_error=redirect method=%s url=%s status=%s'
                       ' body="%s"',
                       method, url, resp.status_code, resp.content)
