@@ -12,6 +12,9 @@ from requests.exceptions import RequestException
 log = logging.getLogger(__name__)
 
 
+# TODO: decide to support query params in base_url or not. Simplify _url_join.
+
+
 class RestClient(object):
 
     """Thin REST/JSON client based on Requests."""
