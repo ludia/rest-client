@@ -1,0 +1,11 @@
+coverage
+httpretty
+mccabe
+nose
+nosexcover
+pep257
+pep8
+pyflakes
+pylama
+nose-parameterized
+mock
