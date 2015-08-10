@@ -12,6 +12,9 @@ from requests.exceptions import RequestException
 log = logging.getLogger(__name__)
 
 
+# TODO: decide to support query params in base_url or not. Simplify _url_join.
+
+
 class RestClient(object):
 
     """Thin REST/JSON client based on Requests."""
@@ -125,15 +128,14 @@ class RestClient(object):
         log.debug('RestClient: %s %s params=%s', method, url, opts)
 
         try:
-            with self.session as s:
-                resp = s.request(method=method, url=url, **opts)
+            resp = self.session.request(method=method, url=url, **opts)
         except RequestException as error:
             log.error('rest_error=%s method=%s url=%s details=%s',
                       error.__class__.__name__, method, url, error)
             raise
 
         # Treat redirect as an error because we are a REST client
-        if 300 <= resp.status_code < 399:
+        if 300 <= resp.status_code < 400:
             log.error('rest_error=redirect method=%s url=%s status=%s'
                       ' body="%s"',
                       method, url, resp.status_code, resp.content)
@@ -144,10 +146,7 @@ class RestClient(object):
         try:
             resp.raise_for_status()
         except Exception as error:
-            if resp.status_code < 500:
-                rest_error = 'client_error'
-            else:
-                rest_error = 'server_error'
+            rest_error = 'client' if resp.status_code < 500 else 'server'
             log.error('rest_error=%s method=%s url=%s status=%s body="%s"',
                       rest_error, method, url, resp.status_code, resp.content)
             raise
