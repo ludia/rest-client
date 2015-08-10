@@ -55,7 +55,7 @@ class TestError(TestBase):
 
         client = RestClient(self.TEST_BASE)
         with mock.patch.object(client, 'session') as m_session:
-            m_request = m_session.__enter__.return_value.request
+            m_request = m_session.request
             m_request.side_effect = RequestException()
 
             with self.assertRaises(RequestException):
@@ -70,7 +70,7 @@ class TestError(TestBase):
 
         client = RestClient(self.TEST_BASE)
         with mock.patch.object(client, 'session') as m_session:
-            m_response = m_session.__enter__.return_value.request.return_value
+            m_response = m_session.request.return_value
             m_response.raise_for_status.side_effect = HTTPError()
             m_response.status_code = 400
 
@@ -79,14 +79,14 @@ class TestError(TestBase):
 
         m_log.error.assert_called_once_with(
             'rest_error=%s method=%s url=%s status=%s body="%s"',
-            'client_error', 'GET', 'http://host/base', 400, m_response.content)
+            'client', 'GET', 'http://host/base', 400, m_response.content)
 
     def test_server_error(self, m_log):
         from rest_client import RestClient, HTTPError
 
         client = RestClient(self.TEST_BASE)
         with mock.patch.object(client, 'session') as m_session:
-            m_response = m_session.__enter__.return_value.request.return_value
+            m_response = m_session.request.return_value
             m_response.raise_for_status.side_effect = HTTPError()
             m_response.status_code = 500
 
@@ -95,7 +95,7 @@ class TestError(TestBase):
 
         m_log.error.assert_called_once_with(
             'rest_error=%s method=%s url=%s status=%s body="%s"',
-            'server_error', 'GET', 'http://host/base', 500, m_response.content)
+            'server', 'GET', 'http://host/base', 500, m_response.content)
 
     def test_redirect(self, m_log):
         pass
@@ -113,19 +113,18 @@ class TestApi(TestBase):
 
 class TestLegacyRequest(TestBase):
 
-    def test_(self):
+    def test_legacy(self):
         from rest_client import RestClient
 
         client = RestClient(self.TEST_BASE)
         client.requests_legacy = True  # Force detection of requests 1.x
 
         with mock.patch.object(client, 'session') as m_session:
-            m_request = m_session.__enter__.return_value.request
-            m_request.return_value.status_code = 200
+            m_session.request.return_value.status_code = 200
 
             client.call('GET', [], json='[1, 2, 3]')
 
-            m_request.assert_called_once_with(
+            m_session.request.assert_called_once_with(
                 allow_redirects=False, data='"[1, 2, 3]"',
                 headers={'Content-Type': 'application/json'}, method='GET',
                 url='http://host/base')
