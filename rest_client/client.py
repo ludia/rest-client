@@ -7,13 +7,13 @@ import posixpath
 
 import requests
 
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException, HTTPError
 
 log = logging.getLogger(__name__)
 
 
 # TODO: decide to support query params in base_url or not. Simplify _url_join.
-
+# TODO: ServiceClient() -> configure from settings and provide call_project()
 
 class RestClient(object):
 
@@ -35,6 +35,10 @@ class RestClient(object):
 
             user_agent (Optional[str]): Set the User-Agent header of all
                 requests sent with this instance of RestClient.
+
+        Notes:
+
+            - Redirect are considered failure
         """
         self.base_url = base_url
         self.default_options = {'allow_redirects': False}
@@ -125,33 +129,75 @@ class RestClient(object):
         opts = self.default_options.copy()
         opts.update(kwargs)
 
-        log.debug('RestClient: %s %s params=%s', method, url, opts)
+        log.debug('RestClient %s %s params=%s', method, url, opts)
 
+        # Perform the HTTP call
         try:
             resp = self.session.request(method=method, url=url, **opts)
-        except RequestException as error:
-            log.error('rest_error=%s method=%s url=%s details=%s',
-                      error.__class__.__name__, method, url, error)
+        except RequestException as exc:
+            error = exc.__class__.__name__
+            errorlog('failure', error, method, url, exc)
             raise
 
-        # Treat redirect as an error because we are a REST client
-        if 300 <= resp.status_code < 400:
-            log.error('rest_error=redirect method=%s url=%s status=%s'
-                      ' body="%s"',
-                      method, url, resp.status_code, resp.content)
-            raise IOError('%s Redirect: %s' % (resp.status_code, resp.reason))
+        # For now: treat redirect as a failure
+        if resp.is_redirect:
+            errorlog('redirect', 'redirect', method, url,
+                     resp.headers['location'], status=resp.status_code,
+                     body=resp.content)
+            raise IOError('Redirect(%s) %s' % (resp.status_code, resp.reason))
 
-        # Let python-requests treat errors and produce the exception to keep
-        # the same API
+        # Let python-requests detect errors
+        # We want the original request exception to keep the same API
         try:
             resp.raise_for_status()
-        except Exception as error:
-            rest_error = 'client' if resp.status_code < 500 else 'server'
-            log.error('rest_error=%s method=%s url=%s status=%s body="%s"',
-                      rest_error, method, url, resp.status_code, resp.content)
+        except HTTPError:
+            error_type, error, message = error_from_response(resp)
+            errorlog(error_type, error, method, url, message,
+                     status=resp.status_code, body=resp.content)
             raise
 
-        log.debug('RestClient: %s %s response: %s %s',
+        log.debug('RestClient %s %s got: %s %s',
                   method, url, resp.status_code, resp.content)
 
         return resp
+
+
+def errorlog(type, error, method, url, detail, status=None, body=None):
+    """Produce standard error log.
+
+    Example:
+
+        RESTClient type=<> error=<> msg="<>" req="METHOD /<>" [status=<>]
+        <body>
+    """
+    line = 'RESTClient type=%s error=%s detail="%s" req="%s %s"' % (
+        type, error, detail, method, url)
+    if status is not None:
+        line += ' status=%s' % status
+    if body is not None:
+        line += '\n%s' % body
+    log.error(line)
+
+
+def error_from_response(resp):
+    """Classify client/server error and extract error payload (failsafe).
+
+    Expected payload:
+
+    {
+        "error": "TypeOfError",
+        "message": "Details about this error"
+    }
+    """
+
+    error_type = 'client' if resp.status_code < 500 else 'server'
+
+    try:
+        payload = resp.json()
+    except:
+        payload = {}
+    finally:
+        error = payload.get("error", "-")
+        message = payload.get("message", "-")
+
+    return error_type, error, message
