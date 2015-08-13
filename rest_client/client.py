@@ -189,7 +189,6 @@ def error_from_response(resp):
         "message": "Details about this error"
     }
     """
-
     error_type = 'client' if resp.status_code < 500 else 'server'
 
     try:
