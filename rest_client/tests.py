@@ -48,9 +48,37 @@ class TestClientInstance(TestBase):
 
 
 @mock.patch('rest_client.client.log')
+class TestErrorLog(TestBase):
+
+    def test_nominal(self, m_log):
+        from rest_client.client import errorlog
+        errorlog('TYPE', 'ERROR', 'METHOD', 'URL', 'DETAILS')
+
+        m_log.error.assert_called_once_with(
+            'RESTClient type=TYPE error=ERROR detail="DETAILS" '
+            'req="METHOD URL"')
+
+    def test_status(self, m_log):
+        from rest_client.client import errorlog
+        errorlog('TYPE', 'ERROR', 'METHOD', 'URL', 'DETAILS', 400)
+
+        m_log.error.assert_called_once_with(
+            'RESTClient type=TYPE error=ERROR detail="DETAILS" '
+            'req="METHOD URL" status=400')
+
+    def test_body(self, m_log):
+        from rest_client.client import errorlog
+        errorlog('TYPE', 'ERROR', 'METHOD', 'URL', 'DETAILS', body='BODY')
+
+        m_log.error.assert_called_once_with(
+            'RESTClient type=TYPE error=ERROR detail="DETAILS" '
+            'req="METHOD URL"\nBODY')
+
+
+@mock.patch('rest_client.client.errorlog')
 class TestError(TestBase):
 
-    def test_exception(self, m_log):
+    def test_exception(self, m_errorlog):
         from rest_client import RestClient, RequestException
 
         client = RestClient(self.TEST_BASE)
@@ -61,44 +89,62 @@ class TestError(TestBase):
             with self.assertRaises(RequestException):
                 client.call('GET', ())
 
-        m_log.error.assert_called_once_with(
-            'rest_error=%s method=%s url=%s details=%s', 'RequestException',
-            'GET', 'http://host/base', m_request.side_effect)
+        m_errorlog.assert_called_once_with(
+            'failure', 'RequestException', 'GET', 'http://host/base',
+            m_request.side_effect)
 
-    def test_client_error(self, m_log):
+    def test_client_error(self, m_errorlog):
         from rest_client import RestClient, HTTPError
 
         client = RestClient(self.TEST_BASE)
         with mock.patch.object(client, 'session') as m_session:
             m_response = m_session.request.return_value
+            m_response.is_redirect = False
             m_response.raise_for_status.side_effect = HTTPError()
             m_response.status_code = 400
+            m_response.json.return_value = {'error': 'ERROR', 'message': 'MSG'}
 
             with self.assertRaises(HTTPError):
                 client.call('GET', ())
 
-        m_log.error.assert_called_once_with(
-            'rest_error=%s method=%s url=%s status=%s body="%s"',
-            'client', 'GET', 'http://host/base', 400, m_response.content)
+        m_errorlog.assert_called_once_with(
+            'client', 'ERROR', 'GET', 'http://host/base', 'MSG',
+            body=m_response.content, status=400)
 
-    def test_server_error(self, m_log):
+    def test_server_error(self, m_errorlog):
         from rest_client import RestClient, HTTPError
 
         client = RestClient(self.TEST_BASE)
         with mock.patch.object(client, 'session') as m_session:
             m_response = m_session.request.return_value
+            m_response.is_redirect = False
             m_response.raise_for_status.side_effect = HTTPError()
             m_response.status_code = 500
+            m_response.json.return_value = {'error': 'ERROR', 'message': 'MSG'}
 
             with self.assertRaises(HTTPError):
                 client.call('GET', ())
 
-        m_log.error.assert_called_once_with(
-            'rest_error=%s method=%s url=%s status=%s body="%s"',
-            'server', 'GET', 'http://host/base', 500, m_response.content)
+        m_errorlog.assert_called_once_with(
+            'server', 'ERROR', 'GET', 'http://host/base', 'MSG',
+            body=m_response.content, status=500)
 
-    def test_redirect(self, m_log):
-        pass
+    def test_redirect(self, m_errorlog):
+        from rest_client import RestClient
+
+        client = RestClient(self.TEST_BASE)
+        with mock.patch.object(client, 'session') as m_session:
+            m_response = m_session.request.return_value
+            m_response.is_redirect = True
+            m_response.status_code = 301
+            m_response.json.return_value = {'error': 'ERROR', 'message': 'MSG'}
+            m_response.headers = {'location': 'LOCATION'}
+            with self.assertRaises(IOError):
+                client.call('GET', ())
+
+        m_errorlog.assert_called_once_with(
+            'redirect', 'redirect', 'GET', 'http://host/base', 'LOCATION',
+            body=m_response.content, status=301)
 
 
 class TestApi(TestBase):
@@ -120,7 +166,9 @@ class TestLegacyRequest(TestBase):
         client.requests_legacy = True  # Force detection of requests 1.x
 
         with mock.patch.object(client, 'session') as m_session:
-            m_session.request.return_value.status_code = 200
+            m_response = m_session.request.return_value
+            m_response.is_redirect = False
+            m_response.status_code = 200
 
             client.call('GET', [], json='[1, 2, 3]')
 
