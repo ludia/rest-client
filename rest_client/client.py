@@ -15,6 +15,15 @@ log = logging.getLogger(__name__)
 # TODO: decide to support query params in base_url or not. Simplify _url_join.
 # TODO: ServiceClient() -> configure from settings and provide call_project()
 
+def is_redirect(response):
+    """Backport request.is_redirect() for python-requests 1.x.
+    http://www.python-requests.org/en/latest/api/#requests.Response.is_redirect
+    """
+    is_redirect = ('location' in response.headers and
+                   response.status_code in [301, 302, 303, 307, 308])
+    return is_redirect
+
+
 class RestClient(object):
 
     """Thin REST/JSON client based on Requests."""
@@ -139,8 +148,8 @@ class RestClient(object):
             errorlog('failure', error, method, url, exc)
             raise
 
-        # For now: treat redirect as a failure
-        if resp.is_redirect:
+        # Treat redirect as a failure
+        if is_redirect(resp):
             errorlog('redirect', 'redirect', method, url,
                      resp.headers['location'], status=resp.status_code,
                      body=resp.content)

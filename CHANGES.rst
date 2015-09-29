@@ -4,6 +4,8 @@ Changelog
 Development
 -----------
 
+* Fix bug with requests 1.x: missing is_redirect method
+
 1.1.0 (2015-08-13)
 ------------------
 
