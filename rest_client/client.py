@@ -1,6 +1,9 @@
 """Thin REST/JSON client based on Requests."""
+try:
+    from urlparse import urlsplit, urlunsplit
+except ImportError:
+    from urllib.parse import urlsplit, urlunsplit
 
-from urlparse import urlsplit, urlunsplit
 import json
 import logging
 import posixpath
