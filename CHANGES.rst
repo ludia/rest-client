@@ -4,6 +4,8 @@ Changelog
 Development
 -----------
 
+* Update for initial Python 3 support.
+
 1.1.1 (2015-09-29)
 ------------------
 

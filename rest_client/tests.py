@@ -197,7 +197,7 @@ class TestClientFunctional(TestBase):
         req = httpretty.last_request()
 
         self.assertEqual(req.path, '/base')
-        self.assertEqual(req.body, '')
+        self.assertEqual(req.body, b'')
         self.assertEqual(req.method, 'GET')
         self.assertEqual(req.request_version, 'HTTP/1.1')
 
@@ -263,7 +263,7 @@ class TestClientFunctional(TestBase):
         RestClient(self.TEST_BASE, auth=auth).call('GET', ())
         req = httpretty.last_request()
 
-        auth = base64.b64encode('user_name:password')
+        auth = base64.b64encode(b'user_name:password').decode('utf-8')
         self.assert_header(req, 'authorization', 'Basic %s' % auth)
 
     @parameterized.expand([

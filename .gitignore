@@ -1,0 +1,9 @@
+/.coverage
+/.eggs/
+/.tox/
+/cover/
+/coverage.xml
+/nosetests.xml
+/rest_client.egg-info/
+*.pyc
+__pycache__
