@@ -31,7 +31,8 @@ class RestClient(object):
 
     """Thin REST/JSON client based on Requests."""
 
-    def __init__(self, base_url, auth=None, options=None, user_agent=None):
+    def __init__(self, base_url, auth=None, options=None, user_agent=None,
+                 session=None):
         """Create a new RestClient instance.
 
         Args:
@@ -48,6 +49,9 @@ class RestClient(object):
             user_agent (Optional[str]): Set the User-Agent header of all
                 requests sent with this instance of RestClient.
 
+            session (Optional[requests.Session]): Set the session that the
+                instance will use for all http requests to send.
+
         Notes:
 
             - Redirect are considered failure
@@ -60,7 +64,7 @@ class RestClient(object):
         # Detect requests version 1.X
         self.requests_legacy = requests.__version__[0] == '1'
 
-        self.session = requests.Session()
+        self.session = session if session else requests.Session()
         self.session.auth = auth
         if user_agent is not None:
             user_agent += ' requests/%s' % requests.__version__
